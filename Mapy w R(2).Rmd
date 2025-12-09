@@ -1,0 +1,106 @@
+---
+title: "Mapy  w R"
+output:
+  html_document: default
+  pdf_document: default
+date: "2025-12-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(sf)
+library(ggplot2)
+library(rmapshaper)
+
+mapa.gdansk <- st_read(
+  dsn = "C:/Users/aodob/OneDrive/Pulpit/mapy w R/dzielnice/Dzielnice.shp")
+
+mapa.gdansk <- mapa.gdansk[mapa.gdansk$NAZWA != "Zatoka Gdańska",]
+
+```
+
+```{r}
+plot(st_geometry(mapa.gdansk))
+```
+
+
+
+```{r}
+#z dodatkami:
+ggplot(data = mapa.gdansk)+
+  geom_sf(fill = "orange",
+          color= "white")+
+  theme_void()
+```
+
+## Uproszczenie granic
+
+
+```{r pressure, echo=FALSE}
+mapa.gda <- ms_simplify(
+  input = mapa.gdansk,
+  keep = 0.01,
+  weighting = 0.7,
+  keep_shapes = T 
+)
+
+ggplot(data = mapa.gda)+
+  geom_sf(fill = "orange",
+          color= "white")+
+  theme_void()
+
+```
+
+## Kartogram właściwy prosty (skokowy), przedstawiający gęstość zaludnienia
+
+```{r}
+mapa.gda$LICZBA_MIE[mapa.gda$LICZBA_MIE==0]<- NA
+
+#nadpisujemy dane:
+mapa.gda$GESTOSC <- mapa.gda$LICZBA_MIE/mapa.gda$POWIERZCHN
+
+#stripchart(mapa.gda$GESTOSC, jitter = "jitter") #podglądamy dane, żeby dostosowac skalę
+#grid()
+
+library(RColorBrewer)
+
+ggplot(data = mapa.gda)+
+  geom_sf(aes(fill=GESTOSC))+
+  theme_void()+
+  scale_fill_fermenter(
+    name = "Gęstość\nzaludnienia",
+    guide = guide_legend(),
+    palette = "PuBuGn",
+    direction = 1,
+    na.value = "grey90",
+    breaks = c(500,1000,2000,4000,6000,8000)
+  )
+
+
+
+```
+
+
+## Kartodiagram, przedstawiający liczbę ludności
+
+```{r}
+mapa.gda$srodki <- st_centroid(mapa.gda$geometry)
+
+ggplot(data=mapa.gda)+
+  geom_sf()+
+  geom_sf(aes(geometry=srodki,
+              size = LICZBA_MIE),
+          fill= "deepskyblue",
+          alpha = 0.5,
+          shape = 22)+
+  theme_void()+
+  scale_size_continuous(
+    name = "liczba mieszkańców",
+    range = c(2,12), #zakres rozmiaru punktów
+    breaks = c(2000, 5000, 10000, 20000),
+    guide = guide_legend(reverse = T)
+  )
+```
+
