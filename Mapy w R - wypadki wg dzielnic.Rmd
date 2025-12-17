@@ -1,0 +1,105 @@
+---
+title: "Mapy  do projektu"
+output:
+  html_document: default
+  pdf_document: default
+date: "2025-12-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+library(sf)
+library(ggplot2)
+library(rmapshaper)
+library(RColorBrewer)
+library(dplyr)
+
+
+mapa.gdansk <- st_read(
+  dsn = "C:/Users/aodob/OneDrive/Pulpit/Projekt zaliczeniowy/dzielnice/Dzielnice.shp")
+
+mapa.gdansk <- mapa.gdansk[mapa.gdansk$NAZWA != "Zatoka Gdańska",]
+
+#import arkusza 2024 z pliku Wypadki!!!
+```
+
+
+## Uproszczenie granic
+
+```{r pressure, echo=FALSE}
+mapa.gda <- ms_simplify(
+  input = mapa.gdansk,
+  keep = 0.01,
+  weighting = 0.7,
+  keep_shapes = T 
+)
+
+```
+
+## Kartogram właściwy prosty (skokowy), przedstawiający gęstość zaludnienia
+
+```{r}
+mapa.gda$LICZBA_MIE[mapa.gda$LICZBA_MIE==0]<- NA
+
+#nadpisujemy dane:
+mapa.gda$GESTOSC <- mapa.gda$LICZBA_MIE/mapa.gda$POWIERZCHN
+
+#stripchart(mapa.gda$GESTOSC, jitter = "jitter") #podglądamy dane, żeby dostosowac skalę
+#grid()
+```
+
+```{r}
+#zsumowanie wypadków dla danej dzielnicy!!! Ważne
+Wypadki_sum <- Wypadki %>%
+  group_by(Dzielnica) %>%
+  summarise(
+    zdarzenia = sum(zdarzenia, na.rm = TRUE), 
+    .groups = "drop"
+  )
+```
+
+
+
+
+```{r}
+#ujednolicenie nazw dzielnic
+Wypadki$Dzielnica<- trimws(tolower(Wypadki$Dzielnica))
+mapa.gda$NAZWA <- trimws(tolower(mapa.gda$NAZWA))
+
+
+
+mapa_wypadki <- mapa.gda %>%
+  left_join(Wypadki_sum, by = c("NAZWA" = "Dzielnica"))
+  
+```
+
+## Kartodiagram, przedstawiający liczbę zdarzeń wg dzielnic w 2024 roku
+
+
+```{r}
+mapa_wypadki$srodki <- st_centroid(mapa_wypadki$geometry)
+
+ggplot(data = mapa_wypadki)+
+  geom_sf(aes(fill=GESTOSC))+
+  theme_void()+
+  scale_fill_fermenter(
+    name = "gestość",
+    guide = guide_legend(),
+    palette = "PuBuGn",
+    direction = 1,
+    na.value = "grey90",
+    breaks = c(500,1000,2000,4000,6000,8000)
+  )+
+  geom_sf()+
+  geom_sf(aes(geometry=srodki,
+              size = zdarzenia),
+          fill= "black",
+          #alpha = 0.5,
+          shape = 22)+
+  theme_void()
+
+
+```
+
